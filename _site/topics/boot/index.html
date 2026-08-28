@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bootloaders</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <div id="sidebar">
+  <a href="/" class="brand">
+    <img src="https://avatars.githubusercontent.com/u/318206555?s=200&v=4" alt="MTG Wiki">
+    <span>MTG Wiki</span>
+  </a>
+
+  <div class="nav-section">Wiki</div>
+  <ul>
+    <li><a href="/">Main Page</a></li>
+    <li><a href="/topics/getting-started.html">Getting Started</a></li>
+  </ul>
+</div>
+
+
+  <div id="content">
+    <h1>Bootloaders</h1>
+<p>If you didnt already choose a firmware interface for your os, go to
+    <a href="/topics/getting-started.html">Getting Started</a>
+    and choose one, we recommend you choose one based on your OSes needs
+    and not code complexity
+</p>
+
+<h2>BIOS</h2>
+<p>A BIOS reads the first sector of your drive, checks if the last 2 bytes match the boot signature <code>0x55 0xAA</code>,
+    if they are valid, it loads those 512 bytes into memory at <code>0x7C00</code> and executes it. That is your bootloader code,
+    usually 440-446 bytes free for machine code in the bootloader (When counting for MBR partition tables).
+</p>
+
+<figure class="highlight"><pre><code class="language-nasm" data-lang="nasm"><span class="p">[</span><span class="nf">org</span> <span class="mh">0x7c00</span><span class="p">]</span>
+
+<span class="nf">jmp</span> <span class="kc">$</span>
+
+<span class="kd">times</span> <span class="mi">510</span><span class="o">-</span><span class="p">(</span><span class="kc">$</span><span class="o">-</span><span class="kc">$$</span><span class="p">)</span> <span class="nv">db</span> <span class="mi">0</span>
+<span class="kd">dw</span> <span class="mh">0xaa55</span></code></pre></figure>
+<p>This is the simplest bootloader, we set nasm origin to <code>0x7c00</code> and pad it to 510 bytes with 0s, last 2 is the
+    boot signature. If the BIOS expects a MBR partition table (most likely when booting on real hardware) your code would look like
+</p>
+
+<figure class="highlight"><pre><code class="language-nasm" data-lang="nasm"><span class="p">[</span><span class="nf">org</span> <span class="mh">0x7c00</span><span class="p">]</span>
+
+<span class="nf">jmp</span> <span class="kc">$</span>
+
+<span class="kd">times</span> <span class="mi">446</span><span class="o">-</span><span class="p">(</span><span class="kc">$</span><span class="o">-</span><span class="kc">$$</span><span class="p">)</span> <span class="nv">db</span> <span class="mi">0</span>
+
+<span class="kd">db</span> <span class="mh">0x80</span> <span class="c1">; bootable flag (0x80 if bootable, 0x00 if not)</span>
+<span class="kd">db</span> <span class="mh">0x00</span><span class="p">,</span> <span class="mh">0x01</span><span class="p">,</span> <span class="mh">0x00</span> <span class="c1">; starting CHS address</span>
+<span class="kd">db</span> <span class="mh">0x71</span> <span class="c1">; partition type</span>
+<span class="kd">db</span> <span class="mh">0x00</span><span class="p">,</span> <span class="mh">0x01</span><span class="p">,</span> <span class="mh">0x00</span> <span class="c1">; Ending CHS address</span>
+<span class="kd">dd</span> <span class="mi">1</span> <span class="c1">; starting LBA sector</span>
+<span class="kd">dd</span> <span class="mi">4096</span> <span class="c1">; total sectors in partition</span>
+
+<span class="kd">times</span> <span class="mi">16</span> <span class="nv">db</span> <span class="mi">0</span>
+<span class="kd">times</span> <span class="mi">16</span> <span class="nv">db</span> <span class="mi">0</span>
+<span class="kd">times</span> <span class="mi">16</span> <span class="nv">db</span> <span class="mi">0</span>
+
+<span class="kd">dw</span> <span class="mh">0xaa55</span></code></pre></figure>
+
+<p>There will be a seperate topic about MBR, so make sure to read that</p>
+
+  </div>
+
+</body>
+</html>
