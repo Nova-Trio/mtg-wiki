@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>NVIDIA Turing; GPU Timer</title>
+  <link rel="stylesheet" href="/style.css">
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/wavedrom/3.5.0/skins/default.js" type="text/javascript"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/wavedrom/3.5.0/wavedrom.min.js" type="text/javascript"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      WaveDrom.ProcessAll();
+    });
+  </script>
+</head>
+<body>
+
+  <div id="sidebar">
+  <a href="/" class="brand">
+    <img src="https://avatars.githubusercontent.com/u/318206555?s=200&v=4" alt="MTG Wiki">
+    <span>MTG Wiki</span>
+  </a>
+
+  <div class="nav-section">Wiki</div>
+  <ul>
+    <li><a href="/">Main Page</a></li>
+    <li><a href="/topics/getting-started.html">Getting Started</a></li>
+  </ul>
+</div>
+
+
+  <div id="content">
+    <h1>GPU Timer</h1>
+<p>NVIDIA includes a programmable timer <code>PTIMER</code> which is used for performance profiling, job scheduling and more, it is a high resolution 64bit timer
+    driven by the numerator and denominator of the crystal.
+</p>
+
+<h2>Reading the time</h2>
+<p>The GPU exposes 2 32bit registers <code>0x009400 aka NV_PTIMER_TIME_0</code> and <code>0x009410 aka NV_PTIMER_TIME_1</code>, 
+
+</p>
+
+<h3>NV_PTIMER_TIME_0</h3>
+<script type="WaveDrom">
+{
+  "reg": [
+    {"name": "Reserved", "bits": 5, "type": 1},
+    {"name": "NSEC", "bits": 27, "type": 2}
+  ],
+  "config": {
+    "bits": 32,
+    "lanes": 1,
+    "hspace": 900,
+    "fontsize": 11
+  }
+}
+</script>
+
+<h3>NV_PTIMER_TIME_1</h3>
+<script type="WaveDrom">
+{
+  "reg": [
+    {"name": "NSEC", "bits": 29, "type": 2},
+    {"name": "Reserved", "bits": 3, "type": 1}
+  ],
+  "config": {
+    "bits": 32,
+    "lanes": 1,
+    "hspace": 900,
+    "fontsize": 11
+  }
+}
+</script>
+
+<p>You read the timer by sampling TIME_1 and TIME_0 in a loop until TIME_1 matches a reread
+    and placing both halves in a u64 timestamp, like
+</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">do</span><span class="p">{</span>
+    <span class="n">high</span> <span class="o">=</span> <span class="n">rd32</span><span class="p">(</span><span class="n">TIME_1</span><span class="p">);</span>
+    <span class="n">low</span> <span class="o">=</span> <span class="n">rd32</span><span class="p">(</span><span class="n">TIME_0</span><span class="p">);</span>
+<span class="p">}</span> <span class="k">while</span> <span class="p">(</span><span class="n">high</span> <span class="o">!=</span> <span class="n">rd32</span><span class="p">(</span><span class="n">TIME_1</span><span class="p">));</span>
+<span class="k">return</span> <span class="p">((</span><span class="n">u64</span><span class="p">)</span><span class="n">high</span> <span class="o">&lt;&lt;</span> <span class="mi">32</span><span class="p">)</span> <span class="o">|</span> <span class="n">lo</span><span class="p">;</span></code></pre></figure>
+
+<h3>Waiting and polling</h3>
+<p>You will frequently need to poll the GPU registers until specific status bits are set
+    a poll like <code>while (!(rd32(REG) &amp; MASK));</code> is dangerous since if the GPU hangs
+    the CPU core will lock up.
+</p>
+
+<p>
+    The driver solves this by either using deadlines or checking if the hardware timer is frozen,
+    or both. On every polling iteration you should test if the deadline has expired and verify that the
+    gpu clock is not frozen like
+</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="n">current_time</span> <span class="o">=</span> <span class="n">read_timer</span><span class="p">();</span>
+
+<span class="k">if</span><span class="p">(</span><span class="n">current_time</span> <span class="o">==</span> <span class="n">last_time</span><span class="p">){</span>
+    <span class="k">return</span> <span class="n">err</span><span class="p">;</span>
+<span class="p">}</span><span class="k">else</span><span class="p">{</span>
+    <span class="n">last_time</span> <span class="o">=</span> <span class="n">current_time</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">if</span> <span class="p">((</span><span class="n">current_time</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">timeout</span><span class="p">){</span>
+    <span class="k">return</span> <span class="n">timeout</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<h3>Alarms</h3>
+<p>When dealing with non blocking waits you must use the alarm, the gpu provides registers <code>0x00009420 aka NV_PTIMER_ALARM_0; 0x00009100 aka NV_PTIMER_INTR_0; 0x00009140 aka NV_PTIMER_INTR_EN_0</code>
+    You program a timestamp in ALARM_0 and when the timer mathes value in ALARM_0 the GPU raises an interrupt and your callback function is called
+</p>
+
+<h3>NV_PTIMER_ALARM_0</h3>
+<script type="WaveDrom">
+{
+  "reg": [
+    {"name": "Reserved", "bits": 5, "type": 1},
+    {"name": "NSEC [31:5]", "bits": 27, "type": 3}
+  ],
+  "config": {
+    "bits": 32,
+    "lanes": 1,
+    "hspace": 900,
+    "fontsize": 11
+  }
+}
+</script>
+
+<h3>NV_PTIMER_INTR_0 / NV_PTIMER_INTR_EN_0</h3>
+<script type="WaveDrom">
+{
+  "reg": [
+    {"name": "ALARM", "bits": 1, "type": 4},
+    {"name": "Reserved", "bits": 31, "type": 1}
+  ],
+  "config": {
+    "bits": 32,
+    "lanes": 1,
+    "hspace": 900,
+    "fontsize": 8
+  }
+}
+</script>
+
+<p>
+    To start, you would write the lower 32bits of the timestamp into ALARM_0, enable interrupts by writing 1 to bit 0 of INTR_EN_0, later when recieving an interrupt you must
+    acknowledge it by writing 1 to bit 0 of INTR_0
+</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="kt">void</span> <span class="nf">set_alarm</span><span class="p">(</span><span class="n">target_time</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">wr32</span><span class="p">(</span><span class="n">NV_PTIMER_ALARM_0</span><span class="p">,</span> <span class="p">(</span><span class="n">u32</span><span class="p">)</span><span class="n">target_time</span><span class="p">);</span>
+    <span class="n">wr32</span><span class="p">(</span><span class="n">NV_PTIMER_INTR_EN_0</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+<span class="p">}</span></code></pre></figure>
+
+
+<p>
+    Because the hardware only has a single 32bit comparator register <code>NV_PTIMER_ALARM_0</code> the driver would implement a software queue to handle multiple alarms
+</p>
+
+<p>
+    When the interrupt triggers, acknowledge it, run your callback and reprogram the register with the next pending alarm
+</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="kt">void</span> <span class="nf">handle_alarm_interrupt</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">rd32</span><span class="p">(</span><span class="n">NV_PTIMER_INTR_0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">wr32</span><span class="p">(</span><span class="n">NV_PTIMER_INTR_0</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+
+        <span class="k">while</span> <span class="p">(</span><span class="n">queue</span><span class="p">.</span><span class="n">earliest_time</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="n">read_timer</span><span class="p">())</span> <span class="p">{</span>
+            <span class="n">queue</span><span class="p">.</span><span class="n">pop_and_run_callback</span><span class="p">();</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">queue</span><span class="p">.</span><span class="n">empty</span><span class="p">())</span> <span class="p">{</span>
+            <span class="n">set_alarm</span><span class="p">(</span><span class="n">queue</span><span class="p">.</span><span class="n">earliest_time</span><span class="p">());</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+            <span class="n">wr32</span><span class="p">(</span><span class="n">NV_PTIMER_INTR_EN_0</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+  </div>
+
+</body>
+</html>

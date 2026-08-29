@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Home</title>
+  <title>NVIDIA Turing</title>
   <link rel="stylesheet" href="/style.css">
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/wavedrom/3.5.0/skins/default.js" type="text/javascript"></script>
@@ -30,13 +30,15 @@
 
 
   <div id="content">
-    <h1>MTG Wiki</h1>
-<p>Welcome to MTG's osdev wiki page! Our main goal is to explain OS concepts clearly without any gatekeeping, elitism or discouragement. If you are new, head over to <a href="topics/getting-started.html">Getting started</a>
-    or choose a topic you are interested in from below</p>
+    <h1>NVIDIA Turing drivers</h1>
+<p>Architecture covers GTX 16xx and RTX 20xx GPUs. Get the firmware from linux-firmware <a href="https://gitlab.com/kernel-firmware/linux-firmware">here</a> under nvidia/tu1[??] or
+  from /lib/firmware/nvidia/tu1[??] where [??] is your GPU. The files you are interested in are <strong>gsp-535.113.01.bin, bootloader-535.113.01.bin and booter_load-535.113.01.bin</strong>.
+  There will be a topic on the 570 driver, but for now 535 works perfectly file. <strong>booter_unload-535.113.01.bin</strong> is used when unloading, it will appear much later in the article.
+</p>
 
-<h3><a href="/topics/boot/index.html">Bootloaders</a></h3>
-<h3><a href="/topics/graphics/index.html">Graphics</a></h3>
-
+<h3><a href="/gpu/nvidia/tu/ident.html">GPU Identification</a></h3>
+<h3><a href="/gpu/nvidia/tu/timer.html">GPU Timers</a></h3>
+<h3><a href="/gpu/nvidia/tu/topeng.html">Engine Topology</a></h3>
   </div>
 
 </body>

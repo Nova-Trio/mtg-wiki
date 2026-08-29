@@ -1,0 +1,111 @@
+---
+layout: default
+title: NVIDIA Turing; GPU Identification
+---
+
+<h1>GPU Identification</h1>
+<h4>Make sure your GPU is exposed to the VM, take note of IOMMU setup, if developing for linux make sure nouveau or nvidia drivers arent using the gpu</h4>
+<p>
+    Vendor ID for NVIDIA is <code>0x10DE</code>, the device ID can be checked with <code>lspci</code>, the GPUs come with BARs:
+</p>
+<ul>
+    <li>BAR0 : 16MB; GPU registers</li>
+    <li>BAR1 : varies; VRAM aperture</li>
+    <li>BAR2 : varies; PRAMIN aperture</li>
+</ul>
+<p>BAR1 depends if you have ReBAR, there are ways to enable it on a Turing card but if disabled BAR1 is usually 256MB, otherwise the size will be your VRAM size. To access
+    all your VRAM without ReBAR there are registers to write to which change addresses exposed which we will get into later. You can only read and write to a 256MB area of
+    VRAM at a time. PRAMIN is your aperture into GPU instance memory sometimes refered to as RAMIN, it is used for example managing GPU MMU page tables, it is not resized 
+    with ReBAR.
+</p>
+
+<p>
+    Map BAR0 and we will go over few important registers in an early stage, 
+    <code>0x000000 aka NV_PMC_BOOT_0</code> is used to READ chipset architecture and revision, important to determene if the card is TU1xx or TU11xx when loading firmware
+</p>
+
+<h3>Boot0 register</h3>
+<script type="WaveDrom">
+{
+  "reg": [
+    {"name": "MINOR_REV", "bits": 4, "type": 2},
+    {"name": "MAJOR_REV", "bits": 4, "type": 2},
+    {"name": "Reserved",  "bits": 12, "type": 1},
+    {"name": "IMPLEMENTATION", "bits": 4, "type": 3},
+    {"name": "ARCHITECTURE",   "bits": 5, "type": 3},
+    {"name": "Reserved",  "bits": 3, "type": 1}
+  ],
+  "config": {
+    "bits": 32,
+    "lanes": 1,
+    "hspace": 900,
+    "fontsize": 11
+  }
+}
+</script>
+
+<p>
+    To read chipset you mask the boot0 value with 0x1ff00000 and shift right by 20 bits, to read the revision you mask boot0 with 0x000000ff
+</p>
+
+{% highlight c %}
+chipset = (rd32(0x000000) & 0x1ff00000) >> 20;
+revision = (rd32(0x000000) & 0x000000ff);
+{% endhighlight %}
+
+<p>
+    Every turing chip begins with 0x16? To determene if the card architecture is Turing you have to mask chipset with 0x1f0 which will clear the
+    variant bits like
+</p>
+
+{% highlight c %}
+if((chipset & 0x1f0) == 0x160) // Turing architecture
+{% endhighlight %}
+
+<h3>vGPU mode</h3>
+<p>vGPU allows partitioning of the GPU resources between multiple virtual machines, if its active initialization is done differently trough the hypervisor because
+    of the restricted access to MMIO. Value is found on boot1 register <code>0x00030000 aka NV_PMC_BOOT_1</code>
+</p>
+
+<br>
+
+<h3>Boot1 register</h3>
+<script type="WaveDrom">
+{
+  "reg": [
+    {"name": "Reserved", "bits": 8, "type": 1},
+    {"name": "VGPU8", "bits": 1, "type": 3},
+    {"name": "Reserved", "bits": 7, "type": 1},
+    {"name": "VGPU", "bits": 2, "type": 2},
+    {"name": "Reserved", "bits": 14, "type": 1}
+  ],
+  "config": {
+    "bits": 32,
+    "lanes": 1,
+    "hspace": 900,
+    "fontsize": 11
+  }
+}
+</script>
+
+<p>Bit 8 is legacy indicator, 0 means REAL (physical hardware), 1 is virtualized, you should read from the bits [17:16] which can be</p>
+<ul>
+    <li>00 : No vGPU</li>
+    <li>01 : Paravirtualized vGPU</li>
+    <li>10 : SR-IOV Virtual Function</li>
+</ul>
+
+<p>It is up to you if you want to support vGPUs</p>
+
+<p>There is also a STRAP register, usually you should use it to read the crystal frequency but historically it was used for other stuff. The register is at offset
+    <code>0x101000</code>, by masking it with 0x00400040 you can determene the crystal frequency as
+</p>
+
+<ul>
+    <li>0x00000000 : 13500KHz (27.0MHz / 2)</li>
+    <li>0x00000040 : 14318KHz (NTSC, 4 * 3.579545MHz)</li>
+    <li>0x00400000 : 27000KHz (Most common)</li>
+    <li>0x00400040 : 25000KHz (Sometimes used)</li>
+</ul>
+
+<p>You should not assume this value or hardcode it, it is used for gpu timing, display timing and the engine clocks</p>

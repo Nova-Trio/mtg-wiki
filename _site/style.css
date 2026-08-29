@@ -120,8 +120,7 @@ th {
 }
 
 figure.highlight,
-div.highlight,
-pre {
+div.highlight {
   background: #0f0f0f !important;
   border: 1px solid #2e2e2e;
   border-radius: 4px;
@@ -131,6 +130,15 @@ pre {
   font-size: 13px;
   line-height: 1.5;
   margin: 15px 0;
+}
+
+figure.highlight pre,
+div.highlight pre {
+  background: transparent !important;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
 }
 
 pre code,
@@ -159,4 +167,64 @@ pre code,
 
 *::-webkit-scrollbar {
   display: none;
+}
+
+svg[id^="WaveDrom_"],
+svg.WaveDrom {
+  background: #202020;
+  border: 1px solid #2e2e2e;
+  border-radius: 4px;
+  padding: 12px;
+  margin: 15px 0;
+  max-width: 100%;
+  height: auto;
+}
+
+svg[id^="WaveDrom_"],
+svg.WaveDrom {
+  display: block;
+  margin: 20px 0;
+  max-width: 100%;
+  height: auto;
+  overflow: visible;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+svg[id^="WaveDrom_"] text,
+svg.WaveDrom text {
+  fill: #d0d0d0 !important;
+}
+
+svg[id^="WaveDrom_"] path,
+svg[id^="WaveDrom_"] line,
+svg.WaveDrom path,
+svg.WaveDrom line {
+  stroke: #555 !important;
+}
+
+
+@media (max-width: 768px) {
+  body {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  #sidebar {
+    width: 100%;
+    min-width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #2e2e2e;
+    overflow-y: visible;
+  }
+
+  #content {
+    width: 100%;
+    overflow-y: visible;
+    padding: 15px;
+  }
 }

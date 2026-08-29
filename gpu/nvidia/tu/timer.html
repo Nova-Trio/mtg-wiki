@@ -1,0 +1,161 @@
+---
+layout: default
+title: NVIDIA Turing; GPU Timer
+---
+
+<h1>GPU Timer</h1>
+<p>NVIDIA includes a programmable timer <code>PTIMER</code> which is used for performance profiling, job scheduling and more, it is a high resolution 64bit timer
+    driven by the numerator and denominator of the crystal.
+</p>
+
+<h2>Reading the time</h2>
+<p>The GPU exposes 2 32bit registers <code>0x009400 aka NV_PTIMER_TIME_0</code> and <code>0x009410 aka NV_PTIMER_TIME_1</code>, 
+
+</p>
+
+<h3>NV_PTIMER_TIME_0</h3>
+<script type="WaveDrom">
+{
+  "reg": [
+    {"name": "Reserved", "bits": 5, "type": 1},
+    {"name": "NSEC", "bits": 27, "type": 2}
+  ],
+  "config": {
+    "bits": 32,
+    "lanes": 1,
+    "hspace": 900,
+    "fontsize": 11
+  }
+}
+</script>
+
+<h3>NV_PTIMER_TIME_1</h3>
+<script type="WaveDrom">
+{
+  "reg": [
+    {"name": "NSEC", "bits": 29, "type": 2},
+    {"name": "Reserved", "bits": 3, "type": 1}
+  ],
+  "config": {
+    "bits": 32,
+    "lanes": 1,
+    "hspace": 900,
+    "fontsize": 11
+  }
+}
+</script>
+
+<p>You read the timer by sampling TIME_1 and TIME_0 in a loop until TIME_1 matches a reread
+    and placing both halves in a u64 timestamp, like
+</p>
+
+{% highlight c %}
+do{
+    high = rd32(TIME_1);
+    low = rd32(TIME_0);
+} while (high != rd32(TIME_1));
+return ((u64)high << 32) | lo;
+{% endhighlight %}
+
+<h3>Waiting and polling</h3>
+<p>You will frequently need to poll the GPU registers until specific status bits are set
+    a poll like <code>while (!(rd32(REG) &amp; MASK));</code> is dangerous since if the GPU hangs
+    the CPU core will lock up.
+</p>
+
+<p>
+    The driver solves this by either using deadlines or checking if the hardware timer is frozen,
+    or both. On every polling iteration you should test if the deadline has expired and verify that the
+    gpu clock is not frozen like
+</p>
+
+{% highlight c %}
+current_time = read_timer();
+
+if(current_time == last_time){
+    return err;
+}else{
+    last_time = current_time;
+}
+
+if ((current_time - start_time) > timeout){
+    return timeout;
+}
+
+{% endhighlight %}
+
+<h3>Alarms</h3>
+<p>When dealing with non blocking waits you must use the alarm, the gpu provides registers <code>0x00009420 aka NV_PTIMER_ALARM_0; 0x00009100 aka NV_PTIMER_INTR_0; 0x00009140 aka NV_PTIMER_INTR_EN_0</code>
+    You program a timestamp in ALARM_0 and when the timer mathes value in ALARM_0 the GPU raises an interrupt and your callback function is called
+</p>
+
+<h3>NV_PTIMER_ALARM_0</h3>
+<script type="WaveDrom">
+{
+  "reg": [
+    {"name": "Reserved", "bits": 5, "type": 1},
+    {"name": "NSEC [31:5]", "bits": 27, "type": 3}
+  ],
+  "config": {
+    "bits": 32,
+    "lanes": 1,
+    "hspace": 900,
+    "fontsize": 11
+  }
+}
+</script>
+
+<h3>NV_PTIMER_INTR_0 / NV_PTIMER_INTR_EN_0</h3>
+<script type="WaveDrom">
+{
+  "reg": [
+    {"name": "ALARM", "bits": 1, "type": 4},
+    {"name": "Reserved", "bits": 31, "type": 1}
+  ],
+  "config": {
+    "bits": 32,
+    "lanes": 1,
+    "hspace": 900,
+    "fontsize": 8
+  }
+}
+</script>
+
+<p>
+    To start, you would write the lower 32bits of the timestamp into ALARM_0, enable interrupts by writing 1 to bit 0 of INTR_EN_0, later when recieving an interrupt you must
+    acknowledge it by writing 1 to bit 0 of INTR_0
+</p>
+
+{% highlight c %}
+void set_alarm(target_time) {
+    wr32(NV_PTIMER_ALARM_0, (u32)target_time);
+    wr32(NV_PTIMER_INTR_EN_0, 1);
+}
+{% endhighlight %}
+
+
+<p>
+    Because the hardware only has a single 32bit comparator register <code>NV_PTIMER_ALARM_0</code> the driver would implement a software queue to handle multiple alarms
+</p>
+
+<p>
+    When the interrupt triggers, acknowledge it, run your callback and reprogram the register with the next pending alarm
+</p>
+
+{% highlight c %}
+void handle_alarm_interrupt() {
+    if (rd32(NV_PTIMER_INTR_0) & 1) {
+        wr32(NV_PTIMER_INTR_0, 1);
+
+        while (queue.earliest_time() <= read_timer()) {
+            queue.pop_and_run_callback();
+        }
+
+        if (!queue.empty()) {
+            set_alarm(queue.earliest_time());
+        } else {
+            wr32(NV_PTIMER_INTR_EN_0, 0);
+        }
+    }
+}
+{% endhighlight %}

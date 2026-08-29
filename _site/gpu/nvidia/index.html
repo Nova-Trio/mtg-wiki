@@ -1,11 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GPU Page</title>
+  <meta charset="UTF-8">
+  <title>NVIDIA</title>
+  <link rel="stylesheet" href="/style.css">
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/wavedrom/3.5.0/skins/default.js" type="text/javascript"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/wavedrom/3.5.0/wavedrom.min.js" type="text/javascript"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      WaveDrom.ProcessAll();
+    });
+  </script>
 </head>
 <body>
-    <p>nvidia gpu gpu mr huang gpu</p>
+
+  <div id="sidebar">
+  <a href="/" class="brand">
+    <img src="https://avatars.githubusercontent.com/u/318206555?s=200&v=4" alt="MTG Wiki">
+    <span>MTG Wiki</span>
+  </a>
+
+  <div class="nav-section">Wiki</div>
+  <ul>
+    <li><a href="/">Main Page</a></li>
+    <li><a href="/topics/getting-started.html">Getting Started</a></li>
+  </ul>
+</div>
+
+
+  <div id="content">
+    <h1>NVIDIA GPUs</h1>
+<p>Your OS needs to have memory managment (vmm, pmm, heap allocator), PCI Express, MSI-X interrupts, timing, disk and filesystem driver, any way to print debug information choose architecture you
+  are interested in and have fun!
+</p>
+
+<h3><a href="/gpu/nvidia/tu/index.html">NVIDIA Turing</a></h3>
+
+  </div>
+
 </body>
 </html>
