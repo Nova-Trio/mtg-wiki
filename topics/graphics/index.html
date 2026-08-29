@@ -1,0 +1,123 @@
+---
+layout: default
+title: Graphics
+---
+<h1>Graphics in your OS</h1>
+<p>There are many ways to implement graphics in your OS, we will go over each and talk about pros and cons,
+    avoid what people tell you to implement, choose whichever you want since we provide tutorials and documentation 
+    on almost all of these
+</p>
+
+<h2>Firmware provided</h2>
+<p>Very easy to implement, high resolutions and color depths</p>
+
+<h3>UEFI GOP (Graphics Output Protocol)</h3>
+<p>When targeting UEFI you can use the <code>EFI_GRAPHICS_OUTPUT_PROTOCOL</code> before exiting boot services. It supports setting
+    high resolutions, 32bit color (R8G8B8A8 or B8G8R8A8) and gives you the width, height, pitch (stride), base address and a pixel format.
+    It is a linear framebuffer
+</p>
+<h4>Pros: Standard across all modern UEFI systems, easy to implement</h4>
+<h4>Cons: Fully CPU based rendering, changing resolutions only works before exiting boot services</h4>
+
+<br>
+
+<h3>VESA BIOS Extensions</h3>
+<p>When targeting BIOS you can invoke INT 0x10 functions 0x4F00, 0x4F01, 0x4F02 to probe modes and set a high
+    resolutions LFB (Linear Framebuffer)
+</p>
+<h4>Pros: Works on almost all legacy machines</h4>
+<h4>Cons: Fully CPU based rendering, must be initialized before switching to 32bit/64bit or via v86 mode</h4>
+
+<h2>Legacy VGA hardware</h2>
+<p>As mentioned above, only works on legacy hardware, very easy to implement but very limited</p>
+
+<h3>VGA Text Mode (mode 0x03)</h3>
+<p>Each character takes 2 bytes, video memory is at 0xB8000, 80x25 character resolution</p>
+<h4>Pros: Very simple, works on any BIOS/CSM machine</h4>
+<h4>Cons: Text only</h4>
+
+<br>
+
+<h3>BIOS Mode 0x13</h3>
+<p>Set via INT 0x10 function 0 mode 0x13, you get a 320x200 256 color mode at address 0xA0000.</p>
+<h4>Pros: Very easy</h4>
+<h4>Cons: Very low resolution and color</h4>
+
+<br>
+
+<h3>VGA Register Programming</h3>
+<p>By writing to VGA IO ports <code>0x3C0 - 0x3DF</code> you can set some custom modes and
+    use some features like hardware page flipping
+</p>
+<h4>Pros: No need for BIOS interrupts</h4>
+<h4>Cons: A bit tedious</h4>
+
+<h2>Virtualized & Paravirtualized Display cards</h2>
+<p>Easy to implement and provides some level of control over your graphics stack, can get 3D and 2D acceleration</p>
+
+<h3>BGA (Bochs Graphics Adapter)</h3>
+<p>Supported in QEMU, Bochs and VBox, it is a PCI device. Requires writing to IO ports <code>0x01CE</code>
+    and <code>0x01CF</code> or the PCI BAR registers, framebuffer address is in BAR1
+</p>
+<h4>Pros: Can dynamically change resolution and bit depth (upto 32bpp), easy to implement</h4>
+<h4>Cons: CPU based rendering, virtualized device</h4>
+
+<br>
+
+<h3>VirtIO-GPU</h3>
+<p>Supported in QEMU on Linux, maybe it works on Windows version on QEMU, Paravirtualized device, allows
+    3D hardware acceleration via VirGL which are translated and sent to your host GPU for execution. Uses standard
+    VirtIO queues, it is a PCI device.
+</p>
+<h4>Pros: Fully virtualized 2D and 3D graphics</h4>
+<h4>Cons: It is a paravirtualized device, your OS depends on VirGL</h4>
+
+<br>
+
+<h3>VMware SVGA-II</h3>
+<p>Works the best in VMware, QEMU and VBox support it but it is not the best, good 2D hardware acceleration
+    (hardware cursor, hw blitting), some 3D acceleration, it is a PCI device too.
+</p>
+<h4>Pros: 3D & 2D acceleration</h4>
+<h4>Cons: Paravirtualized device, works best on VMware</h4>
+
+<br>
+
+<h2>Hardware GPU Support</h2>
+<p>The best choice for full 3D, 2D acceleration, hardware acceleration for video decode/encode and much more. Requires you to either
+    pass your gpu via VFIO or boot on real hardware, all modern GPUS have some kind of on board security and firmware requirement. A very good
+    reminder is that there is no need to buy obsolete cards to make drivers for if your OS will be for a modern PC.
+</p>
+
+<h3>NVIDIA</h3>
+<p>Tedious but not impossible, while the card is propreitery you can get new cards (Turing+) to work but you cant take shortcuts or try to cut corners in the
+    driver because of the security, older architectures (Pascal-) mostly use MMIO and some security engines
+</p>
+<h4>Pros: Full hardware acceleration support, support for modern graphics apis</h4>
+<h4>Cons: Tedious</h4>
+
+<br>
+
+<h3>AMD Radeon (AMDGPU)</h3>
+<p>More open compared to NVIDIA, requires multiple firmware binaries, less tedious but still very possible</p>
+<h4>Pros: Full hardware acceleration support, support for modern graphics apis</h4>
+<h4>Cons: Tedious</h4>
+
+<br>
+
+<h3>Intel UHD / HD / Iris</h3>
+<p>Open documentation by Intel, only one to not require signed firmware for modesetting, firmware is required for video encode/decode, graphics acceleration (Gen 12+) and power managment
+    on newer architectures.
+</p>
+<h4>Pros: Full hardware acceleration support, support for modern graphics apis</h4>
+<h4>Cons: Less tedious</h4>
+
+<br>
+
+<h3>Intel Arc</h3>
+<p>Firmware is required to use the card, same requirement as others</p>
+<h4>Pros: Full hardware acceleration support, support for modern graphics apis</h4>
+<h4>Cons: Tedious</h4>
+
+<br>
+<br>

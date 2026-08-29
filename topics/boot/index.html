@@ -9,44 +9,6 @@ title: Bootloaders
     and not code complexity
 </p>
 
-<h2>BIOS</h2>
-<p>A BIOS reads the first sector of your drive, checks if the last 2 bytes match the boot signature <code>0x55 0xAA</code>,
-    if they are valid, it loads those 512 bytes into memory at <code>0x7C00</code> and executes it. That is your bootloader code,
-    usually 440-446 bytes free for machine code in the bootloader (When counting for MBR partition tables).
-</p>
 
-{% highlight nasm %}
-[org 0x7c00]
-
-jmp $
-
-times 510-($-$$) db 0
-dw 0xaa55
-{% endhighlight %}
-<p>This is the simplest bootloader, we set nasm origin to <code>0x7c00</code> and pad it to 510 bytes with 0s, last 2 is the
-    boot signature. If the BIOS expects a MBR partition table (most likely when booting on real hardware) your code would look like
-</p>
-
-{% highlight nasm %}
-[org 0x7c00]
-
-jmp $
-
-times 446-($-$$) db 0
-
-db 0x80 ; bootable flag (0x80 if bootable, 0x00 if not)
-db 0x00, 0x01, 0x00 ; starting CHS address
-db 0x71 ; partition type
-db 0x00, 0x01, 0x00 ; Ending CHS address
-dd 1 ; starting LBA sector
-dd 4096 ; total sectors in partition
-
-times 16 db 0
-times 16 db 0
-times 16 db 0
-
-dw 0xaa55
-
-{% endhighlight %}
-
-<p>There will be a seperate topic about MBR, so make sure to read that</p>
+<h3>BIOS bootloader topic is <a href="/topics/boot/bios/index.html">here</a></h3>
+<h3>UEFI bootloader topic is <a href="/topics/boot/uefi/index.html">here</a></h3>

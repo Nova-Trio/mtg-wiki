@@ -1,0 +1,158 @@
+---
+layout: default
+title: BIOS Bootloader
+---
+
+<h1>BIOS Bootloader</h1>
+<p>A BIOS reads the first sector of your drive, checks if the last 2 bytes match the boot signature <code>0x55 0xAA</code>,
+    if they are valid, it loads those 512 bytes into memory at <code>0x7C00</code> and executes it. That is your bootloader code,
+    usually 440-446 bytes free for machine code in the bootloader (When counting for MBR partition tables).
+</p>
+
+{% highlight nasm %}
+[org 0x7c00]
+
+jmp $
+
+times 510-($-$$) db 0
+dw 0xaa55
+{% endhighlight %}
+<p>This above is the simplest bootloader, we set nasm origin to <code>0x7c00</code> and pad it to 510 bytes with 0s, last 2 is the
+    boot signature. If the BIOS expects a MBR partition table (most likely when booting on real hardware) your code would look like
+</p>
+
+{% highlight nasm %}
+[org 0x7c00]
+
+jmp $
+
+times 446-($-$$) db 0
+
+db 0x80 ; bootable flag (0x80 if bootable, 0x00 if not)
+db 0x00, 0x01, 0x00 ; starting CHS address
+db 0x71 ; partition type
+db 0x00, 0x01, 0x00 ; Ending CHS address
+dd 1 ; starting LBA sector
+dd 4096 ; total sectors in partition
+
+times 16 db 0
+times 16 db 0
+times 16 db 0
+
+dw 0xaa55
+
+{% endhighlight %}
+
+<p>There will be a seperate topic about MBR, so make sure to read that</p>
+
+<h2>Bios Interrupts</h2>
+<p>BIOS offers you couple of interrupt services, which are:</p>
+
+<table>
+	<thead>
+		<tr>
+			<th>Interrupt number (hex)</th>
+			<th>Service</th>
+		</tr>
+	</thead>
+	<tbody>
+        <tr>
+            <td>10</td>
+            <td>Video</td>
+        </tr>
+		<tr>
+			<td>11</td>
+			<td>Equipment Check</td>
+		</tr>
+		<tr>
+			<td>12</td>
+			<td>Conventional Memory</td>
+		</tr>
+		<tr>
+			<td>13</td>
+			<td>Disk</td>
+		</tr>
+		<tr>
+			<td>14</td>
+			<td>COM</td>
+		</tr>
+		<tr>
+			<td>15</td>
+			<td>System Misc & Extended</td>
+		</tr>
+		<tr>
+			<td>16</td>
+			<td>Keyboard</td>
+		</tr>
+		<tr>
+			<td>17</td>
+			<td>Parallel Printer</td>
+		</tr>
+		<tr>
+			<td>18</td>
+			<td>ROM BASIC / Boot Failure</td>
+		</tr>
+		<tr>
+			<td>19</td>
+			<td>Bootstrap Loader</td>
+		</tr>
+		<tr>
+			<td>1A</td>
+			<td>Timer & RTC</td>
+		</tr>
+	</tbody>
+</table>
+
+<a href="https://www.ctyme.com/rbrown.htm">here you can find all interrupts documented</a>
+
+<p>The usual step for loading a kernel is to make a 2nd stage bootloader, load it with
+    0x13 interrupt services, go into protected mode, go into long mode, make a disk and a filesystem
+    driver and load your kernel.
+</p>
+
+<h2>2nd stage bootloader</h2>
+<p><a href="https://www.ctyme.com/intr/rb-0708.htm">Interrupt 0x13 AH=0x42 "IBM/MS INT 13 Extensions - EXTENDED READ"</a> is used
+the documentation says:</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Offset</th>
+            <th>Size</th>
+            <th>Field</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>0x00</td>
+            <td>1 byte</td>
+            <td>Packet size</td>
+            <td>Must be 0x10</td>
+        </tr>
+        <tr>
+            <td>0x01</td>
+            <td>1 byte</td>
+            <td>Reserved</td>
+            <td>Always 0x00</td>
+        </tr>
+        <tr>
+            <td>0x02</td>
+            <td>1 word</td>
+            <td>Sector Count</td>
+            <td>Number of sectors to read (1-127)</td>
+        </tr>
+        <tr>
+            <td>0x04</td>
+            <td>1 dword</td>
+            <td>Buffer Pointer</td>
+            <td>Far pointer to destination memory</td>
+        </tr>
+        <tr>
+            <td>0x08</td>
+            <td>1 qword</td>
+            <td>Starting LBA</td>
+            <td>64bit LBA of the source sector</td>
+        </tr>
+    </tbody>
+</table>

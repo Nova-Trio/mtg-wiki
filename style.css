@@ -2,6 +2,8 @@
 box-sizing: border-box;
 margin: 0;
 padding: 0;
+-ms-overflow-style: none;
+scrollbar-width: none;
 }
 
 body {
@@ -154,3 +156,7 @@ pre code,
 .highlight .na, .highlight .nb { color: #ffa657; }
 .highlight .c, .highlight .c1, .highlight .cm { color: #8b949e; font-style: italic; }
 .highlight .err { color: inherit; background: none; }
+
+*::-webkit-scrollbar {
+  display: none;
+}
