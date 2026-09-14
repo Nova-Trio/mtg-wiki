@@ -102,6 +102,37 @@ p {
   margin: 15px 0;
 }
 
+.callout {
+  border-left: 4px solid;
+  padding: 12px 15px;
+  margin: 15px 0;
+  background: #202020;
+  border-radius: 0 4px 4px 0;
+}
+
+.callout-info {
+  border-color: #58a6ff;
+}
+.callout-info strong {
+  color: #58a6ff;
+}
+
+.callout-warning {
+  border-color: #d29922;
+  background: #2e2518;
+}
+.callout-warning strong {
+  color: #d29922;
+}
+
+.callout-danger {
+  border-color: #f85149;
+  background: #2e1818;
+}
+.callout-danger strong {
+  color: #f85149;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

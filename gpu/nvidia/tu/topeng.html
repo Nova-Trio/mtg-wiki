@@ -3,3 +3,112 @@ layout: default
 title: NVIDIA Turing; Engine Topology
 ---
 
+<h1>Engine Topology</h1>
+<p>You can directly query all engines <strong>present</strong> on your GPU via MMIO reads, you read
+  64 registers starting from <code>0x022700</code> to <code>0x0227FC</code> with a 4 byte stride
+</p>
+
+<h3>TOP_INFO_ENGINE_TYPE</h3>
+<p>Identifies what kind of engine is being described</p>
+<script type="WaveDrom">
+{
+  "reg": [
+    {"name": "Type", "bits": 29, "type": 4},
+    {"name": "Tag", "bits": 2, "type": 5, "attr": "0x3"}
+  ],
+  "config": {
+    "bits": 32,
+    "lanes": 1,
+    "hspace": 900,
+    "fontsize": 11
+  }
+}
+</script>
+
+<div class="callout callout-warning">
+  <p>MMIO base is not always correct, on Turing SEC2 base is not updated, whatever value you read
+  for SEC2 MMIO base always hardcode at <code>0x840000</code></p>
+</div>
+
+<h3>TOP_INFO_DATA</h3>
+<p>Provides the MMIO base address and optional fault ID for the engine</p>
+<script type="WaveDrom">
+{
+  "reg": [
+    {"name": "Instance", "bits": 6, "type": 2},
+    {"name": "Reserved", "bits": 2, "type": 1},
+    {"name": "Address", "bits": 12, "type": 4},
+    {"name": "FaultID", "bits": 8, "type": 2, "attr": "if Valid"},
+    {"name": "Valid", "bits": 1, "type": 1},
+    {"name": "Tag", "bits": 2, "type": 5, "attr": "0x1"}
+  ],
+  "config": {
+    "bits": 32,
+    "lanes": 1,
+    "hspace": 900,
+    "fontsize": 11
+  }
+}
+</script>
+
+<h3>TOP_INFO_ENUM</h3>
+<p>Provides the logical indices for engine management</p>
+<script type="WaveDrom">
+{
+  "reg": [
+    {"name": "EngineIdx", "bits": 6, "type": 2, "attr": "if Valid"},
+    {"name": "RunlistIdx", "bits": 5, "type": 2, "attr": "if Valid"},
+    {"name": "IntrIdx", "bits": 7, "type": 2, "attr": "if Valid"},
+    {"name": "ResetIdx", "bits": 6, "type": 2, "attr": "if Valid"},
+    {"name": "Valid Flags", "bits": 4, "type": 1},
+    {"name": "Tag", "bits": 2, "type": 5, "attr": "0x2"}
+  ],
+  "config": {
+    "bits": 32,
+    "lanes": 1,
+    "hspace": 900,
+    "fontsize": 11
+  }
+}
+</script>
+
+
+<h3>Engine Type Mapping</h3>
+<p>The <code>Type</code> field from the <strong>TOP_INFO_ENGINE_TYPE</strong> register determines the engine class.
+Note that some types include an <code>Instance</code> field to distinguish between multiple identical engines (eg multiple NVENC engines)</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Value</th>
+      <th>Engine Name</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>0x00</code></td><td>GR (3D Graphics)</td><td>Primary graphics engine</td></tr>
+    <tr><td><code>0x01</code> - <code>0x03</code></td><td>Copy Engine</td><td>Instances 0-2</td></tr>
+    <tr><td><code>0x08</code></td><td>MSPDEC</td><td>Video Decode (Legacy)</td></tr>
+    <tr><td><code>0x09</code></td><td>MSPPP</td><td>Post Processing</td></tr>
+    <tr><td><code>0x0a</code></td><td>MSVLD</td><td>Video Decode (Legacy)</td></tr>
+    <tr><td><code>0x0b</code></td><td>MSENC</td><td>Video Encode (Legacy)</td></tr>
+    <tr><td><code>0x0c</code></td><td>VIC</td><td>Video Image Compositor</td></tr>
+    <tr><td><code>0x0d</code></td><td>SEC2</td><td>Security Engine 2</td></tr>
+    <tr><td><code>0x0e</code></td><td>NVENC</td><td>Hardware Encoder (Uses Instance ID)</td></tr>
+    <tr><td><code>0x0f</code></td><td>NVENC</td><td>Hardware Encoder (Fixed Instance 1)</td></tr>
+    <tr><td><code>0x10</code></td><td>NVDEC</td><td>Hardware Decoder (Uses Instance ID)</td></tr>
+    <tr><td><code>0x12</code></td><td>IOCTRL</td><td>I/O Control (Uses Instance ID)</td></tr>
+    <tr><td><code>0x13</code></td><td>Copy Engine</td><td>Extended Copy Engines (Uses Instance ID)</td></tr>
+    <tr><td><code>0x14</code></td><td>GSP</td><td>GPU System Processor</td></tr>
+    <tr><td><code>0x15</code></td><td>NVJPG</td><td>JPEG Decoder/Encoder (Uses Instance ID)</td></tr>
+  </tbody>
+</table>
+
+<h3>Discovery Logic</h3>
+<p>The driver typically expects a sequence of packets for each engine like</p>
+<ol>
+  <li><strong>ENGINE_TYPE</strong> Identifies the hardware block.</li>
+  <li><strong>DATA</strong> Provides the MMIO offset and fault ID.</li>
+  <li><strong>ENUM</strong> Provides the logical indices for interrupts, resets, and runlists.</li>
+</ol>
+<p>If a register reads <code>0x00000000</code> (NOT_VALID), it is skipped. If the MSB (bit 31) is set that entry is also skipped.</p>
