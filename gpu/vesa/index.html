@@ -1,0 +1,565 @@
+---
+layout: default
+title: VESA BIOS Extensions
+---
+
+<h1>VESA BIOS Extensions</h1>
+<p>If you are targeting a BIOS or a BIOS compatible (CSM) motherboard and dont want UEFI a reliable method of setting a video mode is by
+  using VESA BIOS Extensions, you can read about the standard <a href="https://en.wikipedia.org/wiki/VESA_BIOS_Extensions">here</a>,
+</p>
+
+<h3>Getting SuperVGA Information</h3>
+<p>By calling interrupt 10 with function 0x4F00 with a 512 byte return buffer
+  in ES:DI you will get
+</p>
+
+<table>
+  <tr>
+    <td><strong>AL</strong></td>
+    <td>0x4F if function supported</td>
+  </tr>
+  <tr>
+    <td><strong>AH</strong></td>
+    <td>0x00 = successful<br>else = error code</td>
+  </tr>
+</table>
+
+<p>If successful your buffer will contain:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Offset</th>
+      <th>Size</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0x00</td>
+      <td>4 bytes</td>
+      <td>Signature ("VESA" returned; pass "VBE2" before call to request VBE 2.0+ info)</td>
+    </tr>
+    <tr>
+      <td>0x04</td>
+      <td>WORD</td>
+      <td>VESA version number (e.g. 0x0200 = v2.0)</td>
+    </tr>
+    <tr>
+      <td>0x06</td>
+      <td>DWORD</td>
+      <td>Pointer to OEM string</td>
+    </tr>
+    <tr>
+      <td>0x0A</td>
+      <td>DWORD</td>
+      <td>Capabilities flags (see below)</td>
+    </tr>
+    <tr>
+      <td>0x0E</td>
+      <td>DWORD</td>
+      <td>Pointer to list of supported VESA and OEM video modes (terminated with 0xFFFF)</td>
+    </tr>
+    <tr>
+      <td>0x12</td>
+      <td>WORD</td>
+      <td>Total amount of video memory in 64K blocks</td>
+    </tr>
+    <tr>
+      <td>0x14</td>
+      <td>WORD</td>
+      <td>OEM software version (BCD, high byte = major, low byte = minor)</td>
+    </tr>
+    <tr>
+      <td>0x16</td>
+      <td>DWORD</td>
+      <td>Pointer to vendor name string</td>
+    </tr>
+    <tr>
+      <td>0x1A</td>
+      <td>DWORD</td>
+      <td>Pointer to product name string</td>
+    </tr>
+    <tr>
+      <td>0x1E</td>
+      <td>DWORD</td>
+      <td>Pointer to product revision string</td>
+    </tr>
+    <tr>
+      <td>0x22</td>
+      <td>WORD</td>
+      <td>VBE/AF version (if capabilities bit 3 set)</td>
+    </tr>
+    <tr>
+      <td>0x24</td>
+      <td>DWORD</td>
+      <td>Pointer to list of supported accelerated video modes (if capabilities bit 3 set)</td>
+    </tr>
+    <tr>
+      <td>0x28</td>
+      <td>216 bytes</td>
+      <td>Reserved for VBE implementation</td>
+    </tr>
+    <tr>
+      <td>0x100</td>
+      <td>256 bytes</td>
+      <td>OEM scratchpad</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Capabilities flags</p>
+<table>
+  <thead>
+    <tr>
+      <th>Bit(s)</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0</td>
+      <td>DAC can be switched into 8-bit mode</td>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td>Non-VGA controller</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Programmed DAC with blank bit (i.e. only during blanking interval)</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Controller supports hardware stereoscopic signalling (VBE 3.0) / VBE/AF extensions</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Stereo signalling type (VBE 3.0) / Must call EnableDirectAccess to access framebuffer (VBE/AF)</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Controller supports hardware mouse cursor (VBE/AF)</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>Controller supports hardware clipping (VBE/AF)</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>Controller supports transparent BitBLT (VBE/AF)</td>
+    </tr>
+    <tr>
+      <td>8-31</td>
+      <td>Reserved</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout callout-info">
+  <strong>QEMU Uses Bochs VBE as default video adapter which implements version VBE 2.0, you can use it via a PCI driver or via interrupts</strong>
+</div>
+
+<h3>Getting Video Mode Information</h3>
+<p>Function 0x4F00 only returns a list of mode numbers to get the resolution, color depth, framebuffer address of a specific mode, call interrupt 10 with function 0x4F01 and
+pass the mode number in CX and a 256 byte return buffer in ES:DI.
+</p>
+
+<table>
+  <tr>
+    <td><strong>AX</strong></td>
+    <td>0x4F01</td>
+  </tr>
+  <tr>
+    <td><strong>CX</strong></td>
+    <td>Video mode number to query</td>
+  </tr>
+  <tr>
+    <td><strong>ES:DI</strong></td>
+    <td>Pointer to 256 byte return buffer</td>
+  </tr>
+</table>
+
+<p>Return:</p>
+<table>
+  <tr>
+    <td><strong>AL</strong></td>
+    <td>0x4F if function supported</td>
+  </tr>
+  <tr>
+    <td><strong>AH</strong></td>
+    <td>0x00 = successful<br>0x01 = failed</td>
+  </tr>
+</table>
+
+<p>If successful your buffer will contain:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Offset</th>
+      <th>Size</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0x00</td>
+      <td>WORD</td>
+      <td>Mode attributes (see below)</td>
+    </tr>
+    <tr>
+      <td>0x02</td>
+      <td>BYTE</td>
+      <td>Window A attributes</td>
+    </tr>
+    <tr>
+      <td>0x03</td>
+      <td>BYTE</td>
+      <td>Window B attributes</td>
+    </tr>
+    <tr>
+      <td>0x04</td>
+      <td>WORD</td>
+      <td>Window granularity in KB</td>
+    </tr>
+    <tr>
+      <td>0x06</td>
+      <td>WORD</td>
+      <td>Window size in KB</td>
+    </tr>
+    <tr>
+      <td>0x08</td>
+      <td>WORD</td>
+      <td>Start segment of window A (0000h if not supported)</td>
+    </tr>
+    <tr>
+      <td>0x0A</td>
+      <td>WORD</td>
+      <td>Start segment of window B (0000h if not supported)</td>
+    </tr>
+    <tr>
+      <td>0x0C</td>
+      <td>DWORD</td>
+      <td>Pointer to FAR window positioning function</td>
+    </tr>
+    <tr>
+      <td>0x10</td>
+      <td>WORD</td>
+      <td>Bytes per scan line (pitch/stride)</td>
+    </tr>
+    <tr>
+      <td>0x12</td>
+      <td>WORD</td>
+      <td>Width in pixels (graphics) or characters (text)</td>
+    </tr>
+    <tr>
+      <td>0x14</td>
+      <td>WORD</td>
+      <td>Height in pixels (graphics) or characters (text)</td>
+    </tr>
+    <tr>
+      <td>0x16</td>
+      <td>BYTE</td>
+      <td>Width of character cell in pixels</td>
+    </tr>
+    <tr>
+      <td>0x17</td>
+      <td>BYTE</td>
+      <td>Height of character cell in pixels</td>
+    </tr>
+    <tr>
+      <td>0x18</td>
+      <td>BYTE</td>
+      <td>Number of memory planes</td>
+    </tr>
+    <tr>
+      <td>0x19</td>
+      <td>BYTE</td>
+      <td>Bits per pixel (bpp)</td>
+    </tr>
+    <tr>
+      <td>0x1A</td>
+      <td>BYTE</td>
+      <td>Number of banks</td>
+    </tr>
+    <tr>
+      <td>0x1B</td>
+      <td>BYTE</td>
+      <td>Memory model type (0x04 = packed pixel, 0x06 = direct color)</td>
+    </tr>
+    <tr>
+      <td>0x1C</td>
+      <td>BYTE</td>
+      <td>Bank size in KB</td>
+    </tr>
+    <tr>
+      <td>0x1D</td>
+      <td>BYTE</td>
+      <td>Number of image pages (less one)</td>
+    </tr>
+    <tr>
+      <td>0x1E</td>
+      <td>BYTE</td>
+      <td>Reserved (0x00 for VBE 1.0–2.0, 0x01 for VBE 3.0)</td>
+    </tr>
+    <tr>
+      <td>0x1F</td>
+      <td>BYTE</td>
+      <td>Red mask size in bits (VBE 1.2+)</td>
+    </tr>
+    <tr>
+      <td>0x20</td>
+      <td>BYTE</td>
+      <td>Red field bit position (VBE 1.2+)</td>
+    </tr>
+    <tr>
+      <td>0x21</td>
+      <td>BYTE</td>
+      <td>Green mask size in bits (VBE 1.2+)</td>
+    </tr>
+    <tr>
+      <td>0x22</td>
+      <td>BYTE</td>
+      <td>Green field bit position (VBE 1.2+)</td>
+    </tr>
+    <tr>
+      <td>0x23</td>
+      <td>BYTE</td>
+      <td>Blue mask size in bits (VBE 1.2+)</td>
+    </tr>
+    <tr>
+      <td>0x24</td>
+      <td>BYTE</td>
+      <td>Blue field bit position (VBE 1.2+)</td>
+    </tr>
+    <tr>
+      <td>0x25</td>
+      <td>BYTE</td>
+      <td>Reserved mask size in bits (VBE 1.2+)</td>
+    </tr>
+    <tr>
+      <td>0x26</td>
+      <td>BYTE</td>
+      <td>Reserved field bit position (VBE 1.2+)</td>
+    </tr>
+    <tr>
+      <td>0x27</td>
+      <td>BYTE</td>
+      <td>Direct color mode attributes</td>
+    </tr>
+    <tr>
+      <td>0x28</td>
+      <td>DWORD</td>
+      <td>Physical base address of linear video buffer (LFB) (VBE 2.0+)</td>
+    </tr>
+    <tr>
+      <td>0x2C</td>
+      <td>DWORD</td>
+      <td>Pointer to start of offscreen memory</td>
+    </tr>
+    <tr>
+      <td>0x30</td>
+      <td>WORD</td>
+      <td>Offscreen memory size in KB</td>
+    </tr>
+    <tr>
+      <td>0x32</td>
+      <td>WORD</td>
+      <td>Bytes per scan line in linear modes (VBE 3.0)</td>
+    </tr>
+    <tr>
+      <td>0x34</td>
+      <td>14 bytes</td>
+      <td>Linear mode color mask sizes, positions, and clock fields (VBE 3.0)</td>
+    </tr>
+    <tr>
+      <td>0x42</td>
+      <td>190 bytes</td>
+      <td>Reserved (0)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Mode attributes</p>
+<table>
+  <thead>
+    <tr>
+      <th>Bit(s)</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0</td>
+      <td>Mode supported by present hardware configuration</td>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td>Optional information available (must be 1 for VBE 1.2+)</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>BIOS output supported</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>1 = Color mode, 0 = Monochrome mode</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>1 = Graphics mode, 0 = Text mode</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Mode is not VGA-compatible (VBE 2.0+)</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>Bank-switched mode not supported (VBE 2.0+)</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>Linear framebuffer mode supported (VBE 2.0+)</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>Double-scan mode available (VBE 2.0+)</td>
+    </tr>
+    <tr>
+      <td>9-15</td>
+      <td>Reserved / advanced features (interlaced, stereoscopic, triple buffering)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Setting a video mode</h3>
+<p>Setting a mode is very easy, interrupt 10 with function 0x4F02 and by passing your video mode in BX OR
+  if you have a VBE 3.0+ support you can pass a CRTC block in ES:DI
+</p>
+
+<p>CRTC Information Block</p>
+<table>
+  <thead>
+    <tr>
+      <th>Offset</th>
+      <th>Size</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0x00</td>
+      <td>WORD</td>
+      <td>Total number of pixels horizontally (HTotal)</td>
+    </tr>
+    <tr>
+      <td>0x02</td>
+      <td>WORD</td>
+      <td>Horizontal sync start (in pixels)</td>
+    </tr>
+    <tr>
+      <td>0x04</td>
+      <td>WORD</td>
+      <td>Horizontal sync end (in pixels)</td>
+    </tr>
+    <tr>
+      <td>0x06</td>
+      <td>WORD</td>
+      <td>Total number of scan lines (VTotal)</td>
+    </tr>
+    <tr>
+      <td>0x08</td>
+      <td>WORD</td>
+      <td>Vertical sync start (in scan lines)</td>
+    </tr>
+    <tr>
+      <td>0x0A</td>
+      <td>WORD</td>
+      <td>Vertical sync end (in scan lines)</td>
+    </tr>
+    <tr>
+      <td>0x0C</td>
+      <td>BYTE</td>
+      <td>Flags (see below)</td>
+    </tr>
+    <tr>
+      <td>0x0D</td>
+      <td>DWORD</td>
+      <td>Pixel clock, in Hz</td>
+    </tr>
+    <tr>
+      <td>0x11</td>
+      <td>WORD</td>
+      <td>Refresh rate in 0.01 Hz units (MUST be set to <code>pixel_clock / (HTotal * VTotal)</code>)</td>
+    </tr>
+    <tr>
+      <td>0x13</td>
+      <td>40 bytes</td>
+      <td>Reserved</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>CRTC flags</p>
+<table>
+  <thead>
+    <tr>
+      <th>Bit(s)</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0</td>
+      <td>Double scan (0 = disabled, 1 = enabled)</td>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td>Interlaced (0 = non-interlaced, 1 = interlaced)</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Horizontal sync polarity (0 = positive, 1 = negative)</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Vertical sync polarity (0 = positive, 1 = negative)</td>
+    </tr>
+    <tr>
+      <td>4-7</td>
+      <td>Reserved (0)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>VBE/AF (Accelerator Functions)</h3>
+<p>Emulators like QEMU do not emulate this, it is designed to provide 2D acceleration for common functions like line draw, bitblt, hardware cursor, etc by calling function pointers in
+  protected mode
+</p>
+
+<p>Support for VBE/AF is indicated in the VBE 2.0 SuperVGA Information Block (function 0x4F00):</p>
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Offset</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Capabilities Bit 3</strong></td>
+      <td>0x0A</td>
+      <td>If set (1), the controller supports VBE/AF extensions</td>
+    </tr>
+    <tr>
+      <td><strong>VBE/AF Version</strong></td>
+      <td>0x22</td>
+      <td>BCD version of the specification (e.g. 0x0100 for v1.0P)</td>
+    </tr>
+    <tr>
+      <td><strong>Accelerated Modes</strong></td>
+      <td>0x24</td>
+      <td>32-bit far pointer to a list of mode numbers supporting acceleration (0xFFFF terminated)</td>
+    </tr>
+  </tbody>
+</table>
